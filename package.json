@@ -1,0 +1,54 @@
+{
+  "name": "addx",
+  "version": "0.1.0",
+  "description": "Universal AI tooling manager with a mouse-clickable TUI.",
+  "bin": {
+    "addx": "./dist/addx.js"
+  },
+  "files": [
+    "dist/",
+    "registry.json"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "build": "bun build src/index.ts --outfile dist/addx.js --target node --minify --banner '#!/usr/bin/env node'",
+    "test": "bun test",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "smol-toml": "^1.3.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "1.3.14",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "ai",
+    "mcp",
+    "tui",
+    "cli",
+    "claude",
+    "cursor",
+    "vscode",
+    "developer-tools"
+  ],
+  "license": "MIT",
+  "author": "mulhamna",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mulhamna/addx.git"
+  },
+  "homepage": "https://github.com/mulhamna/addx",
+  "bugs": {
+    "url": "https://github.com/mulhamna/addx/issues"
+  }
+}
