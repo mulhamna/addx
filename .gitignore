@@ -7,3 +7,5 @@ dist/
 coverage/
 .bun/
 *.tsbuildinfo
+.claude
+.agents
