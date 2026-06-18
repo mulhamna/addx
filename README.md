@@ -12,6 +12,20 @@ npx addx
 
 That's it. No install, no config. Launches an interactive TUI in your terminal.
 
+## Installation (Optional)
+
+If you want to install `addx` globally on your system to run it directly:
+
+### macOS & Linux
+```bash
+curl -fsSL https://raw.githubusercontent.com/mulhamna/addx/main/install.sh | bash
+```
+
+### Windows (PowerShell)
+```powershell
+iex (iwr -useb https://raw.githubusercontent.com/mulhamna/addx/main/install.ps1)
+```
+
 ## Non-interactive usage
 
 ```bash
