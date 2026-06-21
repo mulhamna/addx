@@ -4,16 +4,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { HOME } from '../platform/index.js'
 import type { AgentId, Scope } from '../platform/paths.js'
-import type { DetectedItem } from './types.js'
-
-interface PluginEntry {
-  installPath: string
-}
-
-interface InstalledPlugins {
-  version: number
-  plugins: Record<string, PluginEntry[]>
-}
+import type { DetectedItem, InstalledPlugins } from './types.js'
 
 function readDirSafe(p: string): string[] {
   try {

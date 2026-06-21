@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Add to the registry via PR
+    url: https://github.com/mulhamna/addx/blob/main/CONTRIBUTING.md
+    about: The fastest way to add an item is a PR editing registry.json.

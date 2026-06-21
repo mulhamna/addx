@@ -61,6 +61,32 @@ bun run lint:fix  # biome
 bun run build     # produce dist/addx.js
 ```
 
+## Commit messages
+
+This repo uses [Conventional Commits](https://www.conventionalcommits.org/). CI lints
+both your PR title and every commit. `feat:` bumps the minor version, `fix:` the patch
+version, and a `!`/`BREAKING CHANGE` footer the major version — release-please reads these
+to drive releases automatically.
+
+## Releases (maintainers)
+
+Releases are automated:
+
+1. Merging Conventional Commits to `main` makes [release-please](https://github.com/googleapis/release-please) open/maintain a release PR that bumps the version + changelog.
+2. Merging that PR cuts a GitHub Release + tag.
+3. The Release triggers `release.yml`, which (after manual approval on the `release` environment) compiles binaries, publishes to npm + GitHub Packages, and updates the Homebrew tap and Scoop bucket.
+
+### Required repository secrets
+
+| Secret | Used for |
+|---|---|
+| `RELEASE_PLEASE_TOKEN` | PAT release-please uses so the created Release can trigger `release.yml` |
+| `NPM_TOKEN` | Publishing `@mulham28/addx` to npm |
+| `RELEASE_ADDX` | PAT to push the formula/manifest to `mulhamna/homebrew-tap` and `mulhamna/scoop-bucket` |
+
+`GITHUB_TOKEN` is provided automatically (used for the GitHub Packages publish + release uploads).
+The `release` environment gates all publish jobs behind owner approval.
+
 ## Code style
 
 Biome enforces formatting and linting. Run `bun run lint:fix` before committing.
