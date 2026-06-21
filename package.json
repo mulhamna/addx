@@ -1,6 +1,6 @@
 {
   "name": "@mulham28/addx",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Universal AI tooling manager with a mouse-clickable TUI.",
   "bin": {
     "addx": "./dist/addx.js"
