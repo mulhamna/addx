@@ -1,0 +1,46 @@
+name: Registry addition
+description: Request an MCP server, skill, plugin, or other item be added to the registry
+labels: [registry]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Prefer opening a PR that edits `registry.json` (see CONTRIBUTING.md). Use this form
+        if you can't open a PR yourself.
+  - type: input
+    id: id
+    attributes:
+      label: id
+      description: Unique, kebab-case identifier.
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Name
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options: [mcp, skill, plugin, prompt, theme]
+    validations:
+      required: true
+  - type: textarea
+    id: transport
+    attributes:
+      label: Transport / install details
+      description: 'For mcp: http/sse url, or stdio command + args.'
+      render: json
+  - type: input
+    id: targets
+    attributes:
+      label: Targets
+      description: Comma-separated agent ids, or `*` for all.
+    validations:
+      required: true
+  - type: input
+    id: repo
+    attributes:
+      label: Source repo / homepage
