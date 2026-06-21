@@ -108,8 +108,7 @@ addx/
 │   │   │   ├── zed.ts
 │   │   │   ├── opencode.ts
 │   │   │   ├── gemini-cli.ts
-│   │   │   ├── cline.ts
-│   │   │   └── goose.ts
+│   │   │   └── cline.ts
 │   │   └── types.ts              # Installer target type definitions
 │   ├── platform/
 │   │   ├── index.ts              # Platform detection (mac/linux/windows, arch)

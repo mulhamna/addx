@@ -9,10 +9,8 @@ import { recordInstall, recordRemove } from '../state/store.js'
 import { claudeCodeInstaller } from './agents/claude-code.js'
 import { claudeDesktopInstaller } from './agents/claude-desktop.js'
 import { clineInstaller } from './agents/cline.js'
-import { codexInstaller } from './agents/codex.js'
 import { cursorInstaller } from './agents/cursor.js'
 import { geminiCliInstaller } from './agents/gemini-cli.js'
-import { gooseInstaller } from './agents/goose.js'
 import { opencodeInstaller } from './agents/opencode.js'
 import { vscodeInstaller } from './agents/vscode.js'
 import { windsurfInstaller } from './agents/windsurf.js'
@@ -28,8 +26,6 @@ export const INSTALLERS: Record<AgentId, Installer> = {
   opencode: opencodeInstaller,
   'gemini-cli': geminiCliInstaller,
   cline: clineInstaller,
-  goose: gooseInstaller,
-  codex: codexInstaller,
 }
 
 export function getInstaller(agent: AgentId): Installer {

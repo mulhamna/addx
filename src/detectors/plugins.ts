@@ -3,20 +3,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { HOME } from '../platform/index.js'
-import type { DetectedItem } from './types.js'
-
-interface PluginEntry {
-  scope: string
-  installPath: string
-  version: string
-  installedAt?: string
-  gitCommitSha?: string
-}
-
-interface InstalledPlugins {
-  version: number
-  plugins: Record<string, PluginEntry[]>
-}
+import type { DetectedItem, InstalledPlugins } from './types.js'
 
 function readPluginManifestDescription(installPath: string): string | undefined {
   // Try .claude-plugin/plugin.json first, then README.md first non-empty line.

@@ -30,3 +30,17 @@ export interface DetectedItem {
 export function isInstalledSource(s: DetectedSource): boolean {
   return s.type === 'agent-config' || s.type === 'filesystem'
 }
+
+/** Shape of ~/.claude/plugins/installed_plugins.json. */
+export interface PluginEntry {
+  installPath: string
+  scope?: string
+  version?: string
+  installedAt?: string
+  gitCommitSha?: string
+}
+
+export interface InstalledPlugins {
+  version: number
+  plugins: Record<string, PluginEntry[]>
+}
