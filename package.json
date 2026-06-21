@@ -1,5 +1,5 @@
 {
-  "name": "addx",
+  "name": "@mulham28/addx",
   "version": "0.1.0",
   "description": "Universal AI tooling manager with a mouse-clickable TUI.",
   "bin": {
@@ -9,6 +9,9 @@
     "dist/",
     "registry.json"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
@@ -22,11 +25,10 @@
     "lint:fix": "biome check --write src/",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "smol-toml": "^1.3.0"
-  },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@commitlint/cli": "^19.6.0",
+    "@commitlint/config-conventional": "^19.6.0",
     "@types/bun": "1.3.14",
     "@types/node": "^22.10.0",
     "typescript": "^5.7.0"

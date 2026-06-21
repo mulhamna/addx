@@ -1,28 +1,42 @@
 # addx
 
-> `npx addx` — the universal AI tools manager.
+> `npx @mulham28/addx` — the universal AI tools manager.
 
-Browse, install, and manage MCP servers, skills, plugins, and other AI tooling across Claude Code, Cursor, VSCode, Windsurf, Zed, OpenCode, Gemini CLI, Cline, Goose, and more — from a single mouse-clickable TUI.
+Browse, install, and manage MCP servers, skills, plugins, and other AI tooling across Claude Code, Cursor, VSCode, Windsurf, Zed, OpenCode, Gemini CLI, Cline, and more — from a single mouse-clickable TUI.
 
 ## Quick start
 
 ```bash
-npx addx
+npx @mulham28/addx
 ```
 
 That's it. No install, no config. Launches an interactive TUI in your terminal.
 
 ## Installation (Optional)
 
-If you want to install `addx` globally on your system to run it directly:
+Install `addx` globally to run it directly:
 
-### macOS & Linux
+### npm
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mulhamna/addx/main/install.sh | bash
+npm install -g @mulham28/addx
 ```
 
-### Windows (PowerShell)
+### Homebrew (macOS & Linux)
+```bash
+brew install mulhamna/tap/addx
+```
+
+### Scoop (Windows)
 ```powershell
+scoop bucket add mulhamna https://github.com/mulhamna/scoop-bucket
+scoop install addx
+```
+
+### Install script
+```bash
+# macOS & Linux
+curl -fsSL https://raw.githubusercontent.com/mulhamna/addx/main/install.sh | bash
+# Windows (PowerShell)
 iex (iwr -useb https://raw.githubusercontent.com/mulhamna/addx/main/install.ps1)
 ```
 
@@ -30,27 +44,27 @@ iex (iwr -useb https://raw.githubusercontent.com/mulhamna/addx/main/install.ps1)
 
 ```bash
 # Install an MCP server to specific agents
-npx addx install context7 --target cursor --target claude-code
+npx @mulham28/addx install context7 --target cursor --target claude-code
 
 # Global scope (machine-wide instead of current project)
-npx addx install context7 --target claude-code --global
+npx @mulham28/addx install context7 --target claude-code --global
 
 # List installed items
-npx addx list
+npx @mulham28/addx list
 
 # Remove
-npx addx remove context7
+npx @mulham28/addx remove context7
 
 # Search the registry
-npx addx search "postgres"
+npx @mulham28/addx search "postgres"
 
 # Show item info
-npx addx info context7
+npx @mulham28/addx info context7
 ```
 
 ## Supported agents
 
-Claude Code, Claude Desktop, Cursor, VSCode (GitHub Copilot), Windsurf, Zed, OpenCode, Gemini CLI, Cline, Goose.
+Claude Code, Claude Desktop, Cursor, VSCode (GitHub Copilot), Windsurf, Zed, OpenCode, Gemini CLI, Cline.
 
 ## Contributing
 

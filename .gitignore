@@ -9,3 +9,6 @@ coverage/
 *.tsbuildinfo
 .claude
 .agents
+
+# bun build temp files
+*.bun-build
