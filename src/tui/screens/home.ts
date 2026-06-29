@@ -26,7 +26,7 @@ import { type ListState, listHitTest, moveSelection, renderList } from '../compo
 import { type SearchState, applySearchKey, renderSearchbar } from '../components/searchbar.js'
 import { renderStatusbar } from '../components/statusbar.js'
 import { type TabsState, renderTabs, tabHitTest } from '../components/tabs.js'
-import { AMBER, DIM_GRAY, blit, bold, dim, fg, padRight } from '../draw.js'
+import { AMBER, BG_BAR, BG_DEEP, DIM_GRAY, blit, bold, dim, fg, padRight, withBg } from '../draw.js'
 import { box, splitHorizontal, splitVertical } from '../layout.js'
 import { Renderer } from '../renderer.js'
 
@@ -456,7 +456,12 @@ export async function launchHome(): Promise<void> {
       frame[statusArea.y] =
         renderStatusbar({ left: leftStatus, right: rightStatus }, statusArea)[0] ?? ''
 
-      for (let i = 0; i < frame.length; i++) frame[i] = padRight(frame[i] ?? '', size.w)
+      // Background pass: bars get BG_BAR, everything else the deep app background.
+      const barRows = new Set([0, 3, statusArea.y])
+      for (let i = 0; i < frame.length; i++) {
+        const code = barRows.has(i) ? BG_BAR : BG_DEEP
+        frame[i] = withBg(code, frame[i] ?? '', size.w)
+      }
       return frame
     },
 
