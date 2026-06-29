@@ -1,7 +1,7 @@
 // Single source of truth for every agent config file path, per platform and scope.
 
 import path from 'node:path'
-import { APPDATA, HOME, MAC_APP_SUPPORT, XDG_CONFIG_HOME, isMac, isWindows } from './index.js'
+import { APPDATA, HOME, isMac, isWindows, MAC_APP_SUPPORT, XDG_CONFIG_HOME } from './index.js'
 
 export type AgentId =
   | 'claude-code'

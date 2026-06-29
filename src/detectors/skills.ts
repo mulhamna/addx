@@ -1,6 +1,6 @@
 // Scan filesystem for SKILL.md / cursor rules / copilot instructions.
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { HOME } from '../platform/index.js'
 import type { AgentId, Scope } from '../platform/paths.js'

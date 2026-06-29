@@ -2,9 +2,6 @@
 
 import type { AgentId } from '../platform/paths.js'
 import type { RegistryItem } from '../registry/types.js'
-import type { Installer } from './base.js'
-import type { InstallContext, InstallResult } from './types.js'
-
 import { recordInstall, recordRemove } from '../state/store.js'
 import { claudeCodeInstaller } from './agents/claude-code.js'
 import { claudeDesktopInstaller } from './agents/claude-desktop.js'
@@ -15,6 +12,8 @@ import { opencodeInstaller } from './agents/opencode.js'
 import { vscodeInstaller } from './agents/vscode.js'
 import { windsurfInstaller } from './agents/windsurf.js'
 import { zedInstaller } from './agents/zed.js'
+import type { Installer } from './base.js'
+import type { InstallContext, InstallResult } from './types.js'
 
 export const INSTALLERS: Record<AgentId, Installer> = {
   'claude-code': claudeCodeInstaller,

@@ -15,26 +15,26 @@ import {
   type AggregatedGroup,
   type AggregatedLocation,
   type AvailableDetail,
+  buildAvailableDetail,
   type DetailKind,
   type DetectedDetail,
   type EnvField,
   type InstallPanelData,
   type InstallTargetOption,
-  buildAvailableDetail,
   installFocusCount,
   renderDetail,
 } from '../components/detail.js'
 import { type ListState, listHitTest, moveSelection, renderList } from '../components/list.js'
-import { type SearchState, applySearchKey, renderSearchbar } from '../components/searchbar.js'
+import { applySearchKey, renderSearchbar, type SearchState } from '../components/searchbar.js'
 import { renderStatusbar } from '../components/statusbar.js'
-import { type TabsState, renderTabs, tabHitTest } from '../components/tabs.js'
+import { renderTabs, type TabsState, tabHitTest } from '../components/tabs.js'
 import {
   AMBER,
   BG_BAR,
   BG_DEEP,
-  DIM_GRAY,
   blit,
   bold,
+  DIM_GRAY,
   dim,
   drawBox,
   fg,
