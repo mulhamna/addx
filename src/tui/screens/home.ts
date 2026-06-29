@@ -28,6 +28,7 @@ import { type ListState, listHitTest, moveSelection, renderList } from '../compo
 import { type SearchState, applySearchKey, renderSearchbar } from '../components/searchbar.js'
 import { renderStatusbar } from '../components/statusbar.js'
 import { type TabsState, renderTabs, tabHitTest } from '../components/tabs.js'
+import { resolveEscape } from '../escape.js'
 import {
   AMBER,
   BG_BAR,
@@ -564,13 +565,50 @@ export async function launchHome(): Promise<void> {
     },
 
     onKey: (e) => {
+      if (e.name === 'ctrl-c') {
+        renderer.unmount()
+        process.exit(0)
+      }
+      // Universal back/quit ladder — esc backs out the deepest layer, quits when idle.
+      if (e.name === 'escape') {
+        if (installPanel?.busy) return
+        switch (
+          resolveEscape({
+            helpVisible,
+            panelOpen: installPanel !== null,
+            searchActive: search.active,
+            hasFilter: search.value.length > 0,
+          })
+        ) {
+          case 'help':
+            helpVisible = false
+            break
+          case 'panel':
+            installPanel = null
+            break
+          case 'clearEdit':
+            search.active = false
+            search.value = ''
+            refreshList()
+            break
+          case 'clearFilter':
+            search.value = ''
+            refreshList()
+            break
+          case 'quit':
+            renderer.unmount()
+            process.exit(0)
+        }
+        renderer.schedulePaint()
+        return
+      }
       if (helpVisible) {
-        if (e.name === 'escape' || e.name === '?' || e.name === 'q') helpVisible = false
+        if (e.name === '?' || e.name === 'q') helpVisible = false
         renderer.schedulePaint()
         return
       }
       if (search.active) {
-        if (e.name === 'escape' || e.name === 'enter') search.active = false
+        if (e.name === 'enter') search.active = false
         else if (applySearchKey(search, e.name)) refreshList()
         renderer.schedulePaint()
         return
@@ -578,14 +616,9 @@ export async function launchHome(): Promise<void> {
       if (installPanel) {
         if (installPanel.busy) return
         const p = installPanel
-        // Result view: any of enter/esc closes the panel.
+        // Result view: enter closes the panel (esc handled by the ladder above).
         if (p.results) {
-          if (e.name === 'escape' || e.name === 'enter') installPanel = null
-          renderer.schedulePaint()
-          return
-        }
-        if (e.name === 'escape') {
-          installPanel = null
+          if (e.name === 'enter') installPanel = null
           renderer.schedulePaint()
           return
         }
@@ -620,7 +653,6 @@ export async function launchHome(): Promise<void> {
       }
       switch (e.name) {
         case 'q':
-        case 'ctrl-c':
           renderer.unmount()
           process.exit(0)
           break
