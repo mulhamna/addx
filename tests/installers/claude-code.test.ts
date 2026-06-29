@@ -26,7 +26,11 @@ const httpItem: RegistryItem = {
 
 describe('installers/claude-code', () => {
   test('install writes mcpServers entry', async () => {
-    const written = await claudeCodeInstaller.install(httpItem, { scope: 'project', cwd: tmp, env: {} })
+    const written = await claudeCodeInstaller.install(httpItem, {
+      scope: 'project',
+      cwd: tmp,
+      env: {},
+    })
     expect(written).toBe(path.join(tmp, '.mcp.json'))
 
     const raw = JSON.parse(await readFile(written, 'utf8'))
