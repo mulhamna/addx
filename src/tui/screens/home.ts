@@ -26,7 +26,19 @@ import { type ListState, listHitTest, moveSelection, renderList } from '../compo
 import { type SearchState, applySearchKey, renderSearchbar } from '../components/searchbar.js'
 import { renderStatusbar } from '../components/statusbar.js'
 import { type TabsState, renderTabs, tabHitTest } from '../components/tabs.js'
-import { AMBER, BG_BAR, BG_DEEP, DIM_GRAY, blit, bold, dim, fg, padRight, withBg } from '../draw.js'
+import {
+  AMBER,
+  BG_BAR,
+  BG_DEEP,
+  DIM_GRAY,
+  blit,
+  bold,
+  dim,
+  drawBox,
+  fg,
+  padRight,
+  withBg,
+} from '../draw.js'
 import { box, splitHorizontal, splitVertical } from '../layout.js'
 import { Renderer } from '../renderer.js'
 
@@ -54,6 +66,38 @@ export async function launchHome(): Promise<void> {
   let aggregateSkills = false
   let installPanel: InstallPanelData | null = null
   let installGroup: AggregatedGroup | null = null
+  let helpVisible = false
+
+  const HELP_BINDINGS: Array<[string, string]> = [
+    ['↑ ↓', 'navigate list'],
+    ['enter', 'expand group / install'],
+    ['i', 'install selected'],
+    ['s', 'toggle skill aggregate'],
+    ['tab', 'next tab'],
+    ['/', 'search'],
+    ['?', 'toggle this help'],
+    ['esc', 'back · clear · quit'],
+    ['q', 'quit (when idle)'],
+  ]
+
+  function renderHelpOverlay(frame: string[], size: { w: number; h: number }): void {
+    const rows = HELP_BINDINGS.map(([k, d]) => `${fg(AMBER, k.padEnd(7))}${d}`)
+    const boxW = Math.min(size.w - 4, 40)
+    const boxH = rows.length + 2
+    const boxX = Math.max(0, Math.floor((size.w - boxW) / 2))
+    const boxY = Math.max(0, Math.floor((size.h - boxH) / 2))
+    const lines = drawBox(box(boxX, boxY, boxW, boxH), {
+      title: 'keybindings',
+      borderColor: AMBER,
+      titleColor: AMBER,
+    })
+    for (let i = 0; i < lines.length; i++) {
+      blit(frame, boxY + i, boxX, withBg(BG_DEEP, lines[i] ?? '', boxW), size.w)
+    }
+    for (let i = 0; i < rows.length; i++) {
+      blit(frame, boxY + 1 + i, boxX + 2, rows[i] ?? '', size.w)
+    }
+  }
 
   async function refreshDetected(): Promise<void> {
     installState = await loadState()
@@ -451,7 +495,7 @@ export async function launchHome(): Promise<void> {
         : installPanel
           ? '↑↓ focus  ·  space toggle  ·  enter install  ·  esc cancel'
           : statusMsg ||
-            '↑↓ nav  ·  enter expand  ·  i install  ·  s skill-aggregate  ·  / search  ·  q quit'
+            '↑↓ nav  ·  enter expand  ·  i install  ·  / search  ·  ? help  ·  q quit'
       const rightStatus = `${pos}  ·  addx v${VERSION}`
       frame[statusArea.y] =
         renderStatusbar({ left: leftStatus, right: rightStatus }, statusArea)[0] ?? ''
@@ -462,10 +506,17 @@ export async function launchHome(): Promise<void> {
         const code = barRows.has(i) ? BG_BAR : BG_DEEP
         frame[i] = withBg(code, frame[i] ?? '', size.w)
       }
+
+      if (helpVisible) renderHelpOverlay(frame, size)
       return frame
     },
 
     onKey: (e) => {
+      if (helpVisible) {
+        if (e.name === 'escape' || e.name === '?' || e.name === 'q') helpVisible = false
+        renderer.schedulePaint()
+        return
+      }
       if (search.active) {
         if (e.name === 'escape' || e.name === 'enter') search.active = false
         else if (applySearchKey(search, e.name)) refreshList()
@@ -504,6 +555,9 @@ export async function launchHome(): Promise<void> {
           break
         case '/':
           search.active = true
+          break
+        case '?':
+          helpVisible = true
           break
         case 'up':
           moveSelection(list, -1)
@@ -563,6 +617,11 @@ export async function launchHome(): Promise<void> {
 
     onMouse: (e) => {
       if (e.action !== 'press') return
+      if (helpVisible) {
+        helpVisible = false
+        renderer.schedulePaint()
+        return
+      }
       const size = { w: process.stdout.columns || 80, h: process.stdout.rows || 24 }
       if (e.y === 1) {
         const idx = tabHitTest(tabs, tabCounts, e.x)
