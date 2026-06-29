@@ -6,13 +6,13 @@ export const RESET = '\x1b[0m'
 
 export const CYAN = 51
 export const DIM_GRAY = 244
-export const BG_DEEP = 235
 export const BG_CYAN = 23
-// opencode-style palette
+// deep navy/indigo theme — body darkest, bars lighter, selection brightest
 export const AMBER = 214
 export const AMBER_BRIGHT = 208
-export const BG_SELECTED = 237
-export const BG_BAR = 236
+export const BG_DEEP = 17 // body background (deep navy)
+export const BG_BAR = 18 // header/search/status bars (indigo)
+export const BG_SELECTED = 61 // selected row / chips (medium indigo)
 export const SOFT_FG = 252
 
 export function fg(code: number, s: string): string {
