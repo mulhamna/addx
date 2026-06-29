@@ -3,7 +3,7 @@
 import { scanAll } from '../../detectors/index.js'
 import type { DetectedItem, DetectedKind } from '../../detectors/types.js'
 import { isInstalledSource } from '../../detectors/types.js'
-import { installItem } from '../../installers/index.js'
+import { detectInstalledAgents, installItem } from '../../installers/index.js'
 import type { AgentId } from '../../platform/paths.js'
 import { ALL_AGENTS } from '../../platform/paths.js'
 import { loadRegistry } from '../../registry/loader.js'
@@ -326,31 +326,34 @@ export async function launchHome(): Promise<void> {
     }
   }
 
-  /** Agents that already appear anywhere in the current scan — used to pre-check targets. */
-  function presentAgents(): Set<string> {
-    const s = new Set<string>()
-    for (const d of detected) {
-      if (d.source.type === 'agent-config' || d.source.type === 'filesystem') s.add(d.source.agent)
-    }
-    return s
-  }
-
   function expandTargets(targets: (AgentId | '*')[]): AgentId[] {
     if (targets.includes('*')) return [...ALL_AGENTS]
     return targets.filter((t): t is AgentId => t !== '*')
   }
 
+  /**
+   * Re-run real on-disk detection for the open panel's scope: mark/pre-check agents whose
+   * config file actually exists, and float the detected ones to the top.
+   */
+  async function applyDetection(): Promise<void> {
+    const p = installPanel
+    if (!p) return
+    const installed = new Set<string>(await detectInstalledAgents(p.scope, process.cwd()))
+    for (const t of p.targets) {
+      t.scope = p.scope
+      t.detected = installed.has(t.id)
+      t.checked = installed.has(t.id)
+    }
+    p.targets.sort((a, b) => Number(b.detected) - Number(a.detected))
+    p.focusIndex = 0
+    renderer.schedulePaint()
+  }
+
   /** Open the install panel for a registry item, skipping agents that already have it. */
   function openInstallPanel(item: RegistryItem, occupiedAgents: Set<string>): void {
-    const present = presentAgents()
     const targets: InstallTargetOption[] = expandTargets(item.targets)
       .filter((a) => !occupiedAgents.has(a))
-      .map((a) => ({
-        id: a,
-        scope: 'global',
-        checked: present.has(a),
-        detected: present.has(a),
-      }))
+      .map((a) => ({ id: a, scope: 'global', checked: false, detected: false }))
     const envFields: EnvField[] = (item.env ?? []).map((e) => ({
       key: e.key,
       description: e.description,
@@ -358,6 +361,7 @@ export async function launchHome(): Promise<void> {
       value: e.default ?? '',
     }))
     installPanel = { item, scope: 'global', targets, envFields, focusIndex: 0 }
+    void applyDetection()
   }
 
   function mcpToRegistryItem(group: AggregatedGroup): RegistryItem | null {
@@ -647,7 +651,7 @@ export async function launchHome(): Promise<void> {
           (e.name === 'space' || e.name === ' ' || e.name === 'left' || e.name === 'right')
         ) {
           p.scope = p.scope === 'global' ? 'project' : 'global'
-          for (const t of p.targets) t.scope = p.scope
+          void applyDetection()
         } else if (onTarget && (e.name === 'space' || e.name === ' ')) {
           const t = p.targets[p.focusIndex - targetStart]
           if (t) t.checked = !t.checked
