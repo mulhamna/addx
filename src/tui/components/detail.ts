@@ -2,28 +2,51 @@
 // aggregated (installation matrix), available (install hint), empty.
 
 import type { DetectedItem, DetectedKind } from '../../detectors/types.js'
+import type { InstallResult, Scope } from '../../installers/types.js'
 import type { RegistryItem } from '../../registry/types.js'
-import { AMBER, BG_SELECTED, bg, bold, dim, fg, truncate, visibleLength } from '../draw.js'
+import { AMBER, BG_SELECTED, bg, bold, button, dim, fg, truncate, visibleLength } from '../draw.js'
 import type { Box } from '../layout.js'
+
+const GREEN = 40
+const RED = 203
 
 export type DetailKind =
   | { kind: 'empty'; message?: string }
   | { kind: 'registry'; item: RegistryItem }
   | { kind: 'detected'; entry: DetectedDetail }
-  | { kind: 'aggregated'; group: AggregatedGroup; install?: InstallPanelData }
+  | { kind: 'aggregated'; group: AggregatedGroup }
+  | { kind: 'install'; panel: InstallPanelData }
   | { kind: 'available'; entry: AvailableDetail }
 
 export interface InstallTargetOption {
   id: string
-  scope: 'project' | 'global'
+  scope: Scope
   checked: boolean
+  detected?: boolean
+}
+
+export interface EnvField {
+  key: string
+  description: string
+  required: boolean
+  value: string
 }
 
 export interface InstallPanelData {
+  item: RegistryItem
+  scope: Scope
   targets: InstallTargetOption[]
+  envFields: EnvField[]
+  /** Flat focus index: 0 = scope, 1..N = targets, then env fields. */
   focusIndex: number
   busy?: boolean
   message?: string
+  results?: InstallResult[]
+}
+
+/** Total focusable rows in the install panel. */
+export function installFocusCount(p: InstallPanelData): number {
+  return 1 + p.targets.length + p.envFields.length
 }
 
 export interface DetectedDetail {
@@ -73,7 +96,8 @@ export function renderDetail(content: DetailKind, box: Box): string[] {
   }
   if (content.kind === 'registry') return renderRegistry(content.item, box)
   if (content.kind === 'detected') return renderDetected(content.entry, box)
-  if (content.kind === 'aggregated') return renderAggregated(content.group, content.install, box)
+  if (content.kind === 'aggregated') return renderAggregated(content.group, box)
+  if (content.kind === 'install') return renderInstallPanel(content.panel, box)
   return renderAvailable(content.entry, box)
 }
 
@@ -123,11 +147,7 @@ function renderDetected(entry: DetectedDetail, box: Box): string[] {
   return padBox(wrap(lines, box.w - 2, box.h), box.w, box.h)
 }
 
-function renderAggregated(
-  group: AggregatedGroup,
-  install: InstallPanelData | undefined,
-  box: Box,
-): string[] {
+function renderAggregated(group: AggregatedGroup, box: Box): string[] {
   const lines: string[] = []
   lines.push(fg(AMBER, bold(group.name)))
   lines.push('')
@@ -150,33 +170,79 @@ function renderAggregated(
     const managed = loc.managedByAddx ? fg(AMBER, ' ·via addx') : ''
     lines.push(`  ${agentCol}${dim(scopeCol)}${dim(pathTrunc)}${managed}`)
   }
+  return padBox(wrap(lines, box.w - 2, box.h), box.w, box.h)
+}
 
-  if (install) {
+function renderInstallPanel(p: InstallPanelData, box: Box): string[] {
+  const lines: string[] = []
+  const colAgent = 16
+  lines.push(fg(AMBER, bold(`Install ${p.item.name}`)))
+  lines.push('')
+  if (p.item.description) {
+    lines.push(p.item.description)
     lines.push('')
-    if (install.targets.length === 0) {
-      lines.push(dim('replicate to:  already in all supported agents'))
-    } else {
-      lines.push(dim('replicate to:'))
-      for (let i = 0; i < install.targets.length; i++) {
-        const t = install.targets[i]
-        if (!t) continue
-        const isFocus = i === install.focusIndex
-        const mark = t.checked ? fg(AMBER, '▣') : dim('☐')
-        const arrow = isFocus ? fg(AMBER, '▸') : ' '
-        const labelText = `${t.id.padEnd(colAgent)}${dim(`(${t.scope})`)}`
-        lines.push(`  ${arrow} ${mark}  ${labelText}`)
-      }
-      lines.push('')
-      lines.push(
-        dim(
-          install.busy
-            ? 'installing…'
-            : '↑↓ focus  ·  space toggle  ·  enter install  ·  esc cancel',
-        ),
-      )
-      if (install.message) lines.push(fg(AMBER, install.message))
+  }
+
+  // Result view — shown after an install attempt.
+  if (p.results) {
+    lines.push(dim('result:'))
+    for (const r of p.results) {
+      const icon = r.ok ? fg(GREEN, '✓') : fg(RED, '✗')
+      const tail = r.ok ? dim(truncate(r.configPath, box.w - 8)) : fg(RED, r.error ?? 'failed')
+      lines.push(`  ${icon} ${r.agent.padEnd(colAgent)}${tail}`)
+    }
+    lines.push('')
+    lines.push(dim('enter / esc  ·  close'))
+    return padBox(wrap(lines, box.w - 2, box.h), box.w, box.h)
+  }
+
+  // Scope radio (focus index 0).
+  const scopeFocus = p.focusIndex === 0
+  const arrow = (on: boolean): string => (on ? fg(AMBER, '▸') : ' ')
+  const radio = (on: boolean, text: string): string =>
+    on ? fg(AMBER, `(●) ${text}`) : dim(`( ) ${text}`)
+  lines.push(
+    `${arrow(scopeFocus)} ${dim('scope'.padEnd(8))}${radio(p.scope === 'project', 'project')}  ${radio(p.scope === 'global', 'global')}`,
+  )
+  lines.push('')
+
+  // Targets.
+  if (p.targets.length === 0) {
+    lines.push(dim('targets:  already present in all supported agents'))
+  } else {
+    lines.push(dim('targets:'))
+    for (let i = 0; i < p.targets.length; i++) {
+      const t = p.targets[i]
+      if (!t) continue
+      const isFocus = p.focusIndex === i + 1
+      const mark = t.checked ? fg(AMBER, '▣') : dim('☐')
+      const tag = t.detected ? fg(GREEN, ' (detected)') : ''
+      lines.push(`  ${arrow(isFocus)} ${mark}  ${t.id.padEnd(colAgent)}${tag}`)
     }
   }
+
+  // Env fields.
+  if (p.envFields.length > 0) {
+    lines.push('')
+    lines.push(dim('env:'))
+    for (let i = 0; i < p.envFields.length; i++) {
+      const f = p.envFields[i]
+      if (!f) continue
+      const isFocus = p.focusIndex === 1 + p.targets.length + i
+      const cursor = isFocus ? fg(AMBER, '▏') : ''
+      const req = f.required ? fg(RED, '*') : ' '
+      const valBox = bg(BG_SELECTED, ` ${f.value || ''} `)
+      lines.push(`  ${arrow(isFocus)}${req}${f.key.padEnd(colAgent)}${valBox}${cursor}`)
+    }
+  }
+
+  // Actions + hints.
+  lines.push('')
+  lines.push(
+    p.busy ? dim('installing…') : `  ${button('Install', true)}  ${button('Cancel', false)}`,
+  )
+  lines.push(dim('↑↓ move  ·  space toggle  ·  type env  ·  enter install  ·  esc cancel'))
+  if (p.message) lines.push(fg(AMBER, p.message))
 
   return padBox(wrap(lines, box.w - 2, box.h), box.w, box.h)
 }

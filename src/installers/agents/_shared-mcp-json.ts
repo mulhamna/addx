@@ -2,8 +2,8 @@
 
 import { existsSync } from 'node:fs'
 import { readJson, writeJson } from '../../platform/fs.js'
-import { getAgentConfigPath } from '../../platform/paths.js'
 import type { AgentId, Scope } from '../../platform/paths.js'
+import { getAgentConfigPath } from '../../platform/paths.js'
 import type { RegistryItem, Transport } from '../../registry/types.js'
 import type { InstallContext, InstalledItem } from '../types.js'
 

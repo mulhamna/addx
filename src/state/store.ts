@@ -1,8 +1,8 @@
 // Read/write addx's install state file (~/.addx/state.json).
 
 import { readJson, writeJson } from '../platform/fs.js'
-import { getStateFilePath } from '../platform/paths.js'
 import type { AgentId, Scope } from '../platform/paths.js'
+import { getStateFilePath } from '../platform/paths.js'
 import { EMPTY_STATE, type InstallRecord, type InstallState } from './types.js'
 
 export async function loadState(): Promise<InstallState> {

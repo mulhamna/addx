@@ -1,6 +1,6 @@
 // Scan ~/.claude/plugins/marketplaces/*/.claude-plugin/marketplace.json for plugins not yet installed.
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { HOME } from '../platform/index.js'
 import type { DetectedItem } from './types.js'

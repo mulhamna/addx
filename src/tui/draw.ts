@@ -6,12 +6,13 @@ export const RESET = '\x1b[0m'
 
 export const CYAN = 51
 export const DIM_GRAY = 244
-export const BG_DEEP = 235
 export const BG_CYAN = 23
-// opencode-style palette
+// deep navy/indigo theme — body darkest, bars lighter, selection brightest
 export const AMBER = 214
 export const AMBER_BRIGHT = 208
-export const BG_SELECTED = 237
+export const BG_DEEP = 17 // body background (deep navy)
+export const BG_BAR = 18 // header/search/status bars (indigo)
+export const BG_SELECTED = 61 // selected row / chips (medium indigo)
 export const SOFT_FG = 252
 
 export function fg(code: number, s: string): string {
@@ -36,6 +37,26 @@ export function reverse(s: string): string {
 
 export function underline(s: string): string {
   return `\x1b[4m${s}${RESET}`
+}
+
+/**
+ * Fill a line's full visible width with background `code`.
+ * Re-applies the bg after every inner RESET so fg-colored content doesn't punch holes,
+ * then pads to `width` with bg spaces.
+ * ponytail: nested bg via reset-reapply; if a fg helper emits non-RESET resets, extend the replace.
+ */
+export function withBg(code: number, line: string, width: number): string {
+  const open = `\x1b[48;5;${code}m`
+  const reapplied = line.split(RESET).join(`${RESET}${open}`)
+  const padCount = Math.max(0, width - visibleLength(line))
+  return `${open}${reapplied}${' '.repeat(padCount)}${RESET}`
+}
+
+/** Button-styled, clickable-looking label. Amber fill when focused, dim fill otherwise. */
+export function button(label: string, focused = false): string {
+  const code = focused ? AMBER : BG_SELECTED
+  const fgCode = focused ? 233 : SOFT_FG
+  return `\x1b[48;5;${code}m\x1b[38;5;${fgCode}m  ${label}  ${RESET}`
 }
 
 const ANSI_RE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')

@@ -1,11 +1,11 @@
 // Core renderer: enters alt screen, manages mouse + raw keyboard, paints frames, cleans up on exit.
 
-import { RESET, padRight, truncate } from './draw.js'
-import { disableRawInput, enableRawInput, parseKey } from './keyboard.js'
+import { padRight, RESET, truncate } from './draw.js'
 import type { KeyEvent } from './keyboard.js'
+import { disableRawInput, enableRawInput, parseKey } from './keyboard.js'
 import { getTerminalSize } from './layout.js'
-import { disableMouse, enableMouse, parseMouse } from './mouse.js'
 import type { MouseEvent } from './mouse.js'
+import { disableMouse, enableMouse, parseMouse } from './mouse.js'
 
 const ALT_SCREEN_ENTER = '\x1b[?1049h'
 const ALT_SCREEN_EXIT = '\x1b[?1049l'

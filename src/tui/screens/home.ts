@@ -3,7 +3,7 @@
 import { scanAll } from '../../detectors/index.js'
 import type { DetectedItem, DetectedKind } from '../../detectors/types.js'
 import { isInstalledSource } from '../../detectors/types.js'
-import { installItem } from '../../installers/index.js'
+import { detectInstalledAgents, installItem } from '../../installers/index.js'
 import type { AgentId } from '../../platform/paths.js'
 import { ALL_AGENTS } from '../../platform/paths.js'
 import { loadRegistry } from '../../registry/loader.js'
@@ -15,18 +15,33 @@ import {
   type AggregatedGroup,
   type AggregatedLocation,
   type AvailableDetail,
+  buildAvailableDetail,
   type DetailKind,
   type DetectedDetail,
+  type EnvField,
   type InstallPanelData,
   type InstallTargetOption,
-  buildAvailableDetail,
+  installFocusCount,
   renderDetail,
 } from '../components/detail.js'
 import { type ListState, listHitTest, moveSelection, renderList } from '../components/list.js'
-import { type SearchState, applySearchKey, renderSearchbar } from '../components/searchbar.js'
+import { applySearchKey, renderSearchbar, type SearchState } from '../components/searchbar.js'
 import { renderStatusbar } from '../components/statusbar.js'
-import { type TabsState, renderTabs, tabHitTest } from '../components/tabs.js'
-import { AMBER, DIM_GRAY, blit, bold, dim, fg, padRight } from '../draw.js'
+import { renderTabs, type TabsState, tabHitTest } from '../components/tabs.js'
+import {
+  AMBER,
+  BG_BAR,
+  BG_DEEP,
+  blit,
+  bold,
+  DIM_GRAY,
+  dim,
+  drawBox,
+  fg,
+  padRight,
+  withBg,
+} from '../draw.js'
+import { resolveEscape } from '../escape.js'
 import { box, splitHorizontal, splitVertical } from '../layout.js'
 import { Renderer } from '../renderer.js'
 
@@ -53,7 +68,38 @@ export async function launchHome(): Promise<void> {
   let statusMsg = ''
   let aggregateSkills = false
   let installPanel: InstallPanelData | null = null
-  let installGroup: AggregatedGroup | null = null
+  let helpVisible = false
+
+  const HELP_BINDINGS: Array<[string, string]> = [
+    ['↑ ↓', 'navigate list'],
+    ['enter', 'expand group / install'],
+    ['i', 'install selected'],
+    ['s', 'toggle skill aggregate'],
+    ['tab', 'next tab'],
+    ['/', 'search'],
+    ['?', 'toggle this help'],
+    ['esc', 'back · clear · quit'],
+    ['q', 'quit (when idle)'],
+  ]
+
+  function renderHelpOverlay(frame: string[], size: { w: number; h: number }): void {
+    const rows = HELP_BINDINGS.map(([k, d]) => `${fg(AMBER, k.padEnd(7))}${d}`)
+    const boxW = Math.min(size.w - 4, 40)
+    const boxH = rows.length + 2
+    const boxX = Math.max(0, Math.floor((size.w - boxW) / 2))
+    const boxY = Math.max(0, Math.floor((size.h - boxH) / 2))
+    const lines = drawBox(box(boxX, boxY, boxW, boxH), {
+      title: 'keybindings',
+      borderColor: AMBER,
+      titleColor: AMBER,
+    })
+    for (let i = 0; i < lines.length; i++) {
+      blit(frame, boxY + i, boxX, withBg(BG_DEEP, lines[i] ?? '', boxW), size.w)
+    }
+    for (let i = 0; i < rows.length; i++) {
+      blit(frame, boxY + 1 + i, boxX + 2, rows[i] ?? '', size.w)
+    }
+  }
 
   async function refreshDetected(): Promise<void> {
     installState = await loadState()
@@ -280,15 +326,42 @@ export async function launchHome(): Promise<void> {
     }
   }
 
-  function openInstallPanel(group: AggregatedGroup): void {
-    const occupied = new Set(group.locations.map((l) => `${l.agent}::${l.scope}`))
-    const targets: InstallTargetOption[] = []
-    for (const agent of ALL_AGENTS) {
-      const key = `${agent}::global`
-      if (!occupied.has(key)) targets.push({ id: agent, scope: 'global', checked: false })
+  function expandTargets(targets: (AgentId | '*')[]): AgentId[] {
+    if (targets.includes('*')) return [...ALL_AGENTS]
+    return targets.filter((t): t is AgentId => t !== '*')
+  }
+
+  /**
+   * Re-run real on-disk detection for the open panel's scope: mark/pre-check agents whose
+   * config file actually exists, and float the detected ones to the top.
+   */
+  async function applyDetection(): Promise<void> {
+    const p = installPanel
+    if (!p) return
+    const installed = new Set<string>(await detectInstalledAgents(p.scope, process.cwd()))
+    for (const t of p.targets) {
+      t.scope = p.scope
+      t.detected = installed.has(t.id)
+      t.checked = installed.has(t.id)
     }
-    installGroup = group
-    installPanel = { targets, focusIndex: 0 }
+    p.targets.sort((a, b) => Number(b.detected) - Number(a.detected))
+    p.focusIndex = 0
+    renderer.schedulePaint()
+  }
+
+  /** Open the install panel for a registry item, skipping agents that already have it. */
+  function openInstallPanel(item: RegistryItem, occupiedAgents: Set<string>): void {
+    const targets: InstallTargetOption[] = expandTargets(item.targets)
+      .filter((a) => !occupiedAgents.has(a))
+      .map((a) => ({ id: a, scope: 'global', checked: false, detected: false }))
+    const envFields: EnvField[] = (item.env ?? []).map((e) => ({
+      key: e.key,
+      description: e.description,
+      required: e.required ?? false,
+      value: e.default ?? '',
+    }))
+    installPanel = { item, scope: 'global', targets, envFields, focusIndex: 0 }
+    void applyDetection()
   }
 
   function mcpToRegistryItem(group: AggregatedGroup): RegistryItem | null {
@@ -328,39 +401,84 @@ export async function launchHome(): Promise<void> {
   }
 
   async function executeInstall(): Promise<void> {
-    if (!installPanel || !installGroup) return
+    if (!installPanel) return
     const checked = installPanel.targets.filter((t) => t.checked)
     if (checked.length === 0) {
       installPanel.message = 'pick at least 1 target (space toggles)'
       renderer.schedulePaint()
       return
     }
-    const item = mcpToRegistryItem(installGroup)
-    if (!item) {
-      installPanel.message = 'no config snapshot for this MCP — cannot replicate'
+    const missing = installPanel.envFields.filter((f) => f.required && !f.value.trim())
+    if (missing.length > 0) {
+      installPanel.message = `fill required env: ${missing.map((f) => f.key).join(', ')}`
       renderer.schedulePaint()
       return
     }
+    const env: Record<string, string> = {}
+    for (const f of installPanel.envFields) if (f.value.trim()) env[f.key] = f.value
+    installPanel.message = undefined
     installPanel.busy = true
     renderer.schedulePaint()
     const targets = checked.map((t) => t.id as AgentId)
-    const results = await installItem(item, targets, {
-      scope: 'global',
+    const results = await installItem(installPanel.item, targets, {
+      scope: installPanel.scope,
       cwd: process.cwd(),
-      env: {},
+      env,
     })
-    installPanel = null
-    installGroup = null
+    installPanel.busy = false
+    installPanel.results = results
     await refreshDetected()
     refreshList()
     const ok = results.filter((r) => r.ok).length
     const failed = results.length - ok
-    statusMsg = `replicated to ${ok} agent${ok === 1 ? '' : 's'}${failed ? ` · ${failed} failed` : ''}`
+    statusMsg = `installed to ${ok} agent${ok === 1 ? '' : 's'}${failed ? ` · ${failed} failed` : ''}`
     setTimeout(() => {
       statusMsg = ''
       renderer.schedulePaint()
     }, 3500)
     renderer.schedulePaint()
+  }
+
+  function flashMsg(msg: string, ms = 2500): void {
+    statusMsg = msg
+    setTimeout(() => {
+      statusMsg = ''
+      renderer.schedulePaint()
+    }, ms)
+  }
+
+  /** Open the install panel for the selected row (detected MCP group or registry item). */
+  function tryInstallSelected(): void {
+    const row = list.items[list.selectedIndex]?.data as RowData | undefined
+    if (!row) return
+    if (row.type === 'aggregated') {
+      const group = (row.detail as { kind: 'aggregated'; group: AggregatedGroup }).group
+      if (group.kind !== 'mcp') {
+        flashMsg('install via addx only supports MCP right now')
+        return
+      }
+      const item = mcpToRegistryItem(group)
+      if (!item) {
+        flashMsg('no config snapshot for this MCP — cannot replicate')
+        return
+      }
+      openInstallPanel(item, new Set(group.locations.map((l) => l.agent)))
+    } else if (row.type === 'registry') {
+      const item = (row.detail as { kind: 'registry'; item: RegistryItem }).item
+      if (item.type !== 'mcp') {
+        flashMsg('install via addx only supports MCP right now')
+        return
+      }
+      const occupied = new Set<string>()
+      for (const d of detected) {
+        if (
+          d.id.split('@')[0] === item.id &&
+          (d.source.type === 'agent-config' || d.source.type === 'filesystem')
+        )
+          occupied.add(d.source.agent)
+      }
+      openInstallPanel(item, occupied)
+    }
   }
 
   function emptyMessage(): string {
@@ -424,15 +542,7 @@ export async function launchHome(): Promise<void> {
       let detailKind: DetailKind = selectedRow
         ? selectedRow.detail
         : { kind: 'empty', message: emptyMessage() }
-      if (
-        detailKind.kind === 'aggregated' &&
-        installPanel &&
-        installGroup &&
-        detailKind.group.id === installGroup.id &&
-        detailKind.group.kind === installGroup.kind
-      ) {
-        detailKind = { kind: 'aggregated', group: detailKind.group, install: installPanel }
-      }
+      if (installPanel) detailKind = { kind: 'install', panel: installPanel }
       const detailLines = renderDetail(detailKind, detailBox)
       for (let i = 0; i < detailLines.length; i++) {
         blit(frame, detailBox.y + i, detailBox.x, detailLines[i] ?? '', size.w)
@@ -450,55 +560,122 @@ export async function launchHome(): Promise<void> {
         ? 'type to filter  ·  esc finish'
         : installPanel
           ? '↑↓ focus  ·  space toggle  ·  enter install  ·  esc cancel'
-          : statusMsg ||
-            '↑↓ nav  ·  enter expand  ·  i install  ·  s skill-aggregate  ·  / search  ·  q quit'
+          : statusMsg || '↑↓ nav  ·  enter expand  ·  i install  ·  / search  ·  ? help  ·  q quit'
       const rightStatus = `${pos}  ·  addx v${VERSION}`
       frame[statusArea.y] =
         renderStatusbar({ left: leftStatus, right: rightStatus }, statusArea)[0] ?? ''
 
-      for (let i = 0; i < frame.length; i++) frame[i] = padRight(frame[i] ?? '', size.w)
+      // Background pass: bars get BG_BAR, everything else the deep app background.
+      const barRows = new Set([0, 3, statusArea.y])
+      for (let i = 0; i < frame.length; i++) {
+        const code = barRows.has(i) ? BG_BAR : BG_DEEP
+        frame[i] = withBg(code, frame[i] ?? '', size.w)
+      }
+
+      if (helpVisible) renderHelpOverlay(frame, size)
       return frame
     },
 
     onKey: (e) => {
+      if (e.name === 'ctrl-c') {
+        renderer.unmount()
+        process.exit(0)
+      }
+      // Universal back/quit ladder — esc backs out the deepest layer, quits when idle.
+      if (e.name === 'escape') {
+        if (installPanel?.busy) return
+        switch (
+          resolveEscape({
+            helpVisible,
+            panelOpen: installPanel !== null,
+            searchActive: search.active,
+            hasFilter: search.value.length > 0,
+          })
+        ) {
+          case 'help':
+            helpVisible = false
+            break
+          case 'panel':
+            installPanel = null
+            break
+          case 'clearEdit':
+            search.active = false
+            search.value = ''
+            refreshList()
+            break
+          case 'clearFilter':
+            search.value = ''
+            refreshList()
+            break
+          case 'quit':
+            renderer.unmount()
+            process.exit(0)
+        }
+        renderer.schedulePaint()
+        return
+      }
+      if (helpVisible) {
+        if (e.name === '?' || e.name === 'q') helpVisible = false
+        renderer.schedulePaint()
+        return
+      }
       if (search.active) {
-        if (e.name === 'escape' || e.name === 'enter') search.active = false
+        if (e.name === 'enter') search.active = false
         else if (applySearchKey(search, e.name)) refreshList()
         renderer.schedulePaint()
         return
       }
       if (installPanel) {
         if (installPanel.busy) return
-        if (e.name === 'escape') {
-          installPanel = null
-          installGroup = null
+        const p = installPanel
+        // Result view: enter closes the panel (esc handled by the ladder above).
+        if (p.results) {
+          if (e.name === 'enter') installPanel = null
           renderer.schedulePaint()
           return
         }
+        const targetStart = 1
+        const envStart = 1 + p.targets.length
+        const onScope = p.focusIndex === 0
+        const onTarget = p.focusIndex >= targetStart && p.focusIndex < envStart
+        const envIdx = p.focusIndex - envStart
+        const onEnv = envIdx >= 0 && envIdx < p.envFields.length
         if (e.name === 'up') {
-          installPanel.focusIndex = Math.max(0, installPanel.focusIndex - 1)
+          p.focusIndex = Math.max(0, p.focusIndex - 1)
         } else if (e.name === 'down') {
-          installPanel.focusIndex = Math.min(
-            installPanel.targets.length - 1,
-            installPanel.focusIndex + 1,
-          )
-        } else if (e.name === ' ' || e.name === 'space') {
-          const t = installPanel.targets[installPanel.focusIndex]
-          if (t) t.checked = !t.checked
+          p.focusIndex = Math.min(installFocusCount(p) - 1, p.focusIndex + 1)
         } else if (e.name === 'enter') {
           void executeInstall()
+        } else if (
+          onScope &&
+          (e.name === 'space' || e.name === ' ' || e.name === 'left' || e.name === 'right')
+        ) {
+          p.scope = p.scope === 'global' ? 'project' : 'global'
+          void applyDetection()
+        } else if (onTarget && (e.name === 'space' || e.name === ' ')) {
+          const t = p.targets[p.focusIndex - targetStart]
+          if (t) t.checked = !t.checked
+        } else if (onEnv) {
+          const f = p.envFields[envIdx]
+          if (f) {
+            if (e.name === 'backspace') f.value = f.value.slice(0, -1)
+            else if (e.name === 'space' || e.name === ' ') f.value += ' '
+            else if (e.name.length === 1) f.value += e.name
+          }
         }
         renderer.schedulePaint()
         return
       }
       switch (e.name) {
         case 'q':
-        case 'ctrl-c':
           renderer.unmount()
           process.exit(0)
           break
         case '/':
           search.active = true
+          break
+        case '?':
+          helpVisible = true
           break
         case 'up':
           moveSelection(list, -1)
@@ -518,13 +695,11 @@ export async function launchHome(): Promise<void> {
             if (expanded.has(row.groupKey)) expanded.delete(row.groupKey)
             else expanded.add(row.groupKey)
             refreshList()
+          } else if (row.type === 'registry') {
+            tryInstallSelected()
           } else if (row.type === 'available') {
             const avail = (row.detail as { kind: 'available'; entry: AvailableDetail }).entry
-            statusMsg = `copy & run: ${avail.installHint}`
-            setTimeout(() => {
-              statusMsg = ''
-              renderer.schedulePaint()
-            }, 3000)
+            flashMsg(`copy & run: ${avail.installHint}`, 3000)
           }
           break
         }
@@ -537,27 +712,20 @@ export async function launchHome(): Promise<void> {
             renderer.schedulePaint()
           }, 1500)
           break
-        case 'i': {
-          const row = list.items[list.selectedIndex]?.data as RowData | undefined
-          if (!row || row.type !== 'aggregated') break
-          const data = row.detail as { kind: 'aggregated'; group: AggregatedGroup }
-          if (data.group.kind !== 'mcp') {
-            statusMsg = 'install via addx only supports MCP right now'
-            setTimeout(() => {
-              statusMsg = ''
-              renderer.schedulePaint()
-            }, 2500)
-            break
-          }
-          openInstallPanel(data.group)
+        case 'i':
+          tryInstallSelected()
           break
-        }
       }
       renderer.schedulePaint()
     },
 
     onMouse: (e) => {
       if (e.action !== 'press') return
+      if (helpVisible) {
+        helpVisible = false
+        renderer.schedulePaint()
+        return
+      }
       const size = { w: process.stdout.columns || 80, h: process.stdout.rows || 24 }
       if (e.y === 1) {
         const idx = tabHitTest(tabs, tabCounts, e.x)
