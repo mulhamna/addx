@@ -28,7 +28,6 @@ import { type ListState, listHitTest, moveSelection, renderList } from '../compo
 import { type SearchState, applySearchKey, renderSearchbar } from '../components/searchbar.js'
 import { renderStatusbar } from '../components/statusbar.js'
 import { type TabsState, renderTabs, tabHitTest } from '../components/tabs.js'
-import { resolveEscape } from '../escape.js'
 import {
   AMBER,
   BG_BAR,
@@ -42,6 +41,7 @@ import {
   padRight,
   withBg,
 } from '../draw.js'
+import { resolveEscape } from '../escape.js'
 import { box, splitHorizontal, splitVertical } from '../layout.js'
 import { Renderer } from '../renderer.js'
 
@@ -449,13 +449,22 @@ export async function launchHome(): Promise<void> {
     if (!row) return
     if (row.type === 'aggregated') {
       const group = (row.detail as { kind: 'aggregated'; group: AggregatedGroup }).group
-      if (group.kind !== 'mcp') return flashMsg('install via addx only supports MCP right now')
+      if (group.kind !== 'mcp') {
+        flashMsg('install via addx only supports MCP right now')
+        return
+      }
       const item = mcpToRegistryItem(group)
-      if (!item) return flashMsg('no config snapshot for this MCP — cannot replicate')
+      if (!item) {
+        flashMsg('no config snapshot for this MCP — cannot replicate')
+        return
+      }
       openInstallPanel(item, new Set(group.locations.map((l) => l.agent)))
     } else if (row.type === 'registry') {
       const item = (row.detail as { kind: 'registry'; item: RegistryItem }).item
-      if (item.type !== 'mcp') return flashMsg('install via addx only supports MCP right now')
+      if (item.type !== 'mcp') {
+        flashMsg('install via addx only supports MCP right now')
+        return
+      }
       const occupied = new Set<string>()
       for (const d of detected) {
         if (
@@ -547,8 +556,7 @@ export async function launchHome(): Promise<void> {
         ? 'type to filter  ·  esc finish'
         : installPanel
           ? '↑↓ focus  ·  space toggle  ·  enter install  ·  esc cancel'
-          : statusMsg ||
-            '↑↓ nav  ·  enter expand  ·  i install  ·  / search  ·  ? help  ·  q quit'
+          : statusMsg || '↑↓ nav  ·  enter expand  ·  i install  ·  / search  ·  ? help  ·  q quit'
       const rightStatus = `${pos}  ·  addx v${VERSION}`
       frame[statusArea.y] =
         renderStatusbar({ left: leftStatus, right: rightStatus }, statusArea)[0] ?? ''
@@ -634,7 +642,10 @@ export async function launchHome(): Promise<void> {
           p.focusIndex = Math.min(installFocusCount(p) - 1, p.focusIndex + 1)
         } else if (e.name === 'enter') {
           void executeInstall()
-        } else if (onScope && (e.name === 'space' || e.name === ' ' || e.name === 'left' || e.name === 'right')) {
+        } else if (
+          onScope &&
+          (e.name === 'space' || e.name === ' ' || e.name === 'left' || e.name === 'right')
+        ) {
           p.scope = p.scope === 'global' ? 'project' : 'global'
           for (const t of p.targets) t.scope = p.scope
         } else if (onTarget && (e.name === 'space' || e.name === ' ')) {
